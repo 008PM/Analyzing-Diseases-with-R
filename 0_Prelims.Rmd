@@ -1,0 +1,245 @@
+---
+title: "Data transformation scripts for graphs"
+output: html_document
+---
+
+## 1. Define column names and read data
+
+-   Defines 11 column names (e.g., `"epi_week"`, `"country"`, `"disease"`) to organize the dataset.
+-   Reads `Tycho_L2.csv` into a data frame using custom column names, assuming no header row.
+
+``` r
+# Define column names
+column_names <- c(
+  "epi_week", "country", "state", "loc", "loc_type", 
+  "disease", "event", "number", "from_date", "to_date", "url"
+)
+
+# Read the CSV file
+df_clean <- read.csv("Tycho_L2.csv", col.names = column_names, header = FALSE)
+```
+
+## 2. Filter and transform data
+
+-   Filters data for 10 major cities (e.g., New York City, Chicago).
+
+-   Converts the number column to numeric, handling invalid entries as NA.
+
+-   Groups data by city and disease, summing death counts.
+
+-   Identifies the disease with the highest death count per city.
+
+-   Renames columns to “City”, “Top Disease”, “Death Count” for clarit
+
+``` r
+# Load dplyr package
+library(dplyr)
+
+# Define target cities
+target_cities <- c(
+  "NEW YORK CITY", "LOS ANGELES", "CHICAGO", "HOUSTON", "PHOENIX", 
+  "PHILADELPHIA", "SAN ANTONIO", "SAN DIEGO", "DALLAS", "JACKSONVILLE"
+)
+
+# Ensure 'number' column is numeric
+df_clean$number <- as.numeric(df_clean$number)
+
+# Filter for target cities (case-insensitive)
+filtered_df <- df_clean[toupper(df_clean$loc) %in% target_cities, ]
+
+# Group by city and disease, summing death counts
+grouped <- filtered_df %>%
+  group_by(loc, disease) %>%
+  summarise(number = sum(number, na.rm = TRUE), .groups = "drop")
+
+# Get the disease with the highest death count per city
+result_df <- grouped %>%
+  group_by(loc) %>%
+  slice_max(order_by = number, n = 1) %>%
+  ungroup()
+
+# Rename columns for clarity
+colnames(result_df) <- c("City", "Top Disease", "Death Count")
+```
+
+``` r
+# Save the result_df data frame to a new CSV file
+write.csv(result_df, "top_disease_by_city.csv", row.names = FALSE)
+
+# Confirm the file has been saved
+cat("CSV file 'top_disease_by_city.csv' has been created.\n")
+```
+
+-   Exports the result_df data frame to top_disease_by_city.csv without row indices.
+-   Confirms the file creation with a printed message.
+
+``` r
+# Save result_df to a CSV file
+write.csv(result_df, "top_disease_by_city.csv", row.names = FALSE)
+
+# Confirm the file has been saved
+cat("CSV file 'top_disease_by_city.csv' has been created.\n")
+```
+
+## 3.Aggregating and Mapping State-Level Death Counts from Tycho_L2.csv
+
+-   Descriptive: It summarizes the script’s key actions—aggregating death counts by state and mapping abbreviations to full names.
+-   Specific: Mentions the input file (Tycho_L2.csv) and the focus on state-level data.
+-   Professional: Clear and concise for documentation or sharing in a project context.
+-   Engaging: Straightforward yet informative, making it easy to explain to Lisa with a playful spin if needed (e.g., “Lisa, check out this cool - state data crunch! 😎”)
+
+``` r
+# Load dplyr package (install if needed: install.packages("dplyr"))
+library(dplyr)
+
+# Load the data
+df <- read.csv("Tycho_L2.csv")
+colnames(df) <- trimws(colnames(df))
+
+# Filter for DEATHS and ensure valid death counts
+df_deaths <- df %>%
+  filter(event == "DEATHS") %>%
+  mutate(number = as.numeric(number)) %>%
+  filter(number > 0 & !is.na(number))
+
+# Group by state and sum deaths
+state_death_counts <- df_deaths %>%
+  group_by(state) %>%
+  summarise(total_deaths = sum(number, na.rm = TRUE)) %>%
+  ungroup()
+
+# Map state abbreviations to full names
+state_name_map <- c(
+  AL = "Alabama", AK = "Alaska", AZ = "Arizona", AR = "Arkansas", CA = "California",
+  CO = "Colorado", CT = "Connecticut", DE = "Delaware", FL = "Florida", GA = "Georgia",
+  HI = "Hawaii", ID = "Idaho", IL = "Illinois", IN = "Indiana", IA = "Iowa", KS = "Kansas",
+  KY = "Kentucky", LA = "Louisiana", ME = "Maine", MD = "Maryland", MA = "Massachusetts",
+  MI = "Michigan", MN = "Minnesota", MS = "Mississippi", MO = "Missouri", MT = "Montana",
+  NE = "Nebraska", NV = "Nevada", NH = "New Hampshire", NJ = "New Jersey", NM = "New Mexico",
+  NY = "New York", NC = "North Carolina", ND = "North Dakota", OH = "Ohio", OK = "Oklahoma",
+  OR = "Oregon", PA = "Pennsylvania", RI = "Rhode Island", SC = "South Carolina", SD = "South Dakota",
+  TN = "Tennessee", TX = "Texas", UT = "Utah", VT = "Vermont", VA = "Virginia",
+  WA = "Washington", WV = "West Virginia", WI = "Wisconsin", WY = "Wyoming", DC = "District of Columbia"
+)
+
+state_death_counts$state_name <- state_name_map[state_death_counts$state]
+
+# Reorder columns
+state_death_counts <- state_death_counts %>%
+  select(state_abbr = state, state_name, total_deaths)
+
+# Save to CSV
+write.csv(state_death_counts, "state_death_totals.csv", row.names = FALSE)
+
+# Confirm save
+cat("Saved file with state abbreviations, full names, and death totals to 'state_death_totals.csv'\n")
+```
+
+## 4.Summing and Sorting Disease Death Totals
+
+-   Load Data: Use read.csv to load L2_10city.csv.
+-   Filter and Group: Filter for event == "DEATHS", group by disease, and sum the number column using dplyr.
+-   Sort and Rename: Sort by total deaths in descending order and rename columns to “Disease” and “Total_Deaths”.
+-   Save to CSV: Use write.csv to save the result to disease_totals.csv without row names.
+-   Print Results: Display the results and a confirmation message.
+-   Error Handling: Use tryCatch to handle file-not-found and other errors.
+-   Bullet Points: Summarize the script’s actions under a clear title for documentation
+
+``` r
+# Load dplyr package (install if needed: install.packages("dplyr"))
+library(dplyr)
+
+# Define file paths
+input_file <- "L2_10city.csv"
+output_file <- "disease_totals.csv"
+
+# Read and process data with error handling
+tryCatch({
+  # Read the data
+  df <- read.csv(input_file)
+  
+  # Filter for DEATHS events
+  deaths_df <- df %>% filter(event == "DEATHS")
+  
+  # Group by disease and sum death counts
+  disease_totals <- deaths_df %>%
+    group_by(disease) %>%
+    summarise(Total_Deaths = sum(number, na.rm = TRUE)) %>%
+    ungroup() %>%
+    rename(Disease = disease) %>%
+    arrange(desc(Total_Deaths))
+  
+  # Save to CSV
+  write.csv(disease_totals, output_file, row.names = FALSE)
+  
+  # Print confirmation and results
+  cat("Successfully created aggregated file:", output_file, "\n\n")
+  cat("Disease Totals:\n")
+  print(disease_totals, row.names = FALSE)
+  
+}, error = function(e) {
+  if (grepl("cannot open file", e$message)) {
+    cat("Error: File '", input_file, "' not found. Please check the file path.\n", sep = "")
+  } else {
+    cat("An error occurred: ", e$message, "\n", sep = "")
+  }
+})
+```
+
+## 5.Creating and Saving Disease Communicable Status Data
+
+-   Builds a data frame listing diseases, their total death counts, and communicable status (C/NC).
+-   Exports the data frame to diseases_with_communicable_status.csv.
+-   Prints a success message and shows the disease names with their communicable status.
+
+``` r
+# Create data frame with disease classification data
+df <- data.frame(
+  Disease = c("Tuberculosis", "Pneumonia", "Pneumonia And Influenza", 
+              "Diphtheria", "Typhoid Fever", "Influenza", "Scarlet Fever", 
+              "Whooping Cough", "Meningitis", "Smallpox", "Brucellosis",
+              "Pellagra", "Chickenpox", "Typhus Fever", "Varioloid",
+              "Cholera", "Yellow Fever", "Dengue", "Leprosy"),
+  Total_Deaths = c(610350, 429167, 254963, 97441, 43672, 38054, 34445,
+                   16624, 4048, 2566, 1447, 754, 579, 244, 9, 6, 4, 2, 0),
+  Communicable = c("C", "C", "C", "C", "C", "C", "C", "C", "C", "C", "C",
+                   "NC", "C", "C", "C", "C", "C", "C", "C")
+)
+
+# Save to CSV
+write.csv(df, "diseases_with_communicable_status.csv", row.names = FALSE)
+
+# Print confirmation and disease classification
+cat("CSV file created successfully!\n\n")
+cat("Disease Classification:\n")
+print(df[, c("Disease", "Communicable")], row.names = FALSE)
+```
+
+## 6.Ranking Top 5 Diseases by Death Count from L2_10city.csv
+
+-   Loads L2_10city.csv data file.
+-   Groups data by disease and sums death counts.
+-   Ranks diseases and selects the top 5 with the highest death counts.
+-   Saves the result to top_5_diseases.csv.
+
+``` r
+# Load dplyr package (install if needed: install.packages("dplyr"))
+library(dplyr)
+
+# Load the data
+data <- read.csv("L2_10city.csv")
+
+# Group by disease and sum death counts
+disease_counts <- data %>%
+  group_by(disease) %>%
+  summarise(number = sum(number, na.rm = TRUE)) %>%
+  ungroup()
+
+# Get top 5 diseases by death count
+top_5_diseases <- disease_counts %>%
+  arrange(desc(number)) %>%
+  slice_head(n = 5)
+
+# Save to CSV
+write.csv(top_5_diseases, "top_5_diseases.csv", row.names = FALSE)
+```

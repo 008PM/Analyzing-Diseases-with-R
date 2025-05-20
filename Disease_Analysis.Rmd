@@ -1,0 +1,593 @@
+```{r load_csv}
+# Load CSV file from Linux system
+file_path <- "/home/presto/Documents/Tycho_L2.csv"  # ← Must include filename
+
+# Check if file exists
+if (file.exists(file_path)) {
+  # Read CSV (using readr for better performance)
+  library(readr)
+  data <- read_csv(file_path)
+  
+  # Show first 6 rows for checking
+  head(data)
+} else {
+  message("Error: File not found at:\n", file_path)
+}
+```
+
+```{r Plotting}
+#Disease-Specific Mortality Timeline
+# Load the data
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+
+df %>%
+  mutate(week_start = ymd(from_date)) %>%
+  ggplot(aes(x = week_start, y = number, color = disease)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  facet_wrap(~loc, scales = "free_y") +
+  labs(title = "Weekly Disease Mortality by City (June-July 1888)",
+       x = "Week Starting",
+       y = "Number of Deaths",
+       color = "Disease") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r Plotting}
+#Comparative Mortality Heatmap
+df %>%
+  group_by(loc, disease) %>%
+  summarise(total_deaths = sum(number), .groups = "drop") %>%
+  ggplot(aes(x = disease, y = loc, fill = total_deaths)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = total_deaths), color = "white") +
+  scale_fill_viridis_c(option = "plasma", direction = -1) +
+  labs(title = "Total Deaths by Disease and City",
+       x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+```
+
+```         
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Sample data (replace this with your actual data loading code)
+# Assuming the data is in a CSV file named 'disease_data.csv'
+data <- read.csv("disease_data.csv", header = FALSE, stringsAsFactors = FALSE)
+
+# Assign column names based on the sample data
+colnames(data) <- c("id", "country", "state", "city", "type", "disease", "metric", "deaths", "start_date", "end_date", "url")
+
+# List of cities to analyze
+target_cities <- c("NEW YORK CITY", "LOS ANGELES", "CHICAGO", "HOUSTON", "PHOENIX", 
+                  "PHILADELPHIA", "SAN ANTONIO", "SAN DIEGO", "DALLAS", "JACKSONVILLE")
+
+# Clean and prepare the data
+clean_data <- data %>%
+  filter(toupper(city) %in% target_cities,  # Filter for our target cities
+  metric == "DEATHS") %>%                  # Only look at death records
+  mutate(
+    city = toupper(city),                  # Standardize city names
+    deaths = as.numeric(deaths)            # Ensure deaths are numeric
+  ) %>%
+  filter(!is.na(deaths))                   # Remove NA values
+
+# Find the disease with most deaths in each city
+result <- clean_data %>%
+  group_by(city, disease) %>%
+  summarize(total_deaths = sum(deaths)) %>%
+  group_by(city) %>%
+  filter(total_deaths == max(total_deaths)) %>%
+  arrange(desc(total_deaths))
+
+# Print the results
+print(result)
+
+# Optional: Save results to CSV
+write.csv(result, "most_deadly_diseases_by_city.csv", row.names = FALSE)
+```
+
+```{r Plotting}
+# Load required packages
+library(dplyr)
+library(ggplot2)
+library(maps)
+
+# Load the data
+file_path <- file_path
+df <- read_csv(file_path)
+
+# Filter to include only death events
+df_deaths <- df %>%
+  filter(event == "DEATHS")
+
+# Aggregate total deaths by city and disease
+agg_data <- df_deaths %>%
+  group_by(loc, state, disease) %>%
+  summarise(total_deaths = sum(number), .groups = "drop")
+
+# Create a manual city -> lat/lon lookup
+city_coords <- tibble::tribble(
+  ~loc, ~state, ~lat, ~lon,
+"NEW YORK CITY", "NY", 40.7128, -74.0060,
+"LOS ANGELES", "CA", 34.0522, -118.2437,
+"CHICAGO", "IL", 41.8781, -87.6298,
+"HOUSTON", "TX", 29.7604, -95.3698,
+"PHOENIX", "AZ", 33.4484, -112.0740,
+"PHILADELPHIA", "PA", 39.9526, -75.1652,
+"SAN ANTONIO", "TX", 29.4241, -98.4936,
+"SAN DIEGO", "CA", 32.7157, -117.1611,
+"DALLAS", "TX", 32.7767, -96.7970, 
+"JACKSONVILLE", "FL", 30.3322, -81.6557,
+)
+
+# Merge city coordinates
+map_data <- left_join(agg_data, city_coords, by = c("loc", "state"))
+
+# Base US map
+us_map <- map_data("state")# Save the result_df DataFrame to a new CSV file
+result_df.to_csv("top_disease_by_city.csv", index=False)
+
+# Confirm the file has been saved
+print("CSV file 'top_disease_by_city.csv' has been created.")
+
+# Plot
+ggplot() +
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group),
+               fill = "gray90", color = "white") +
+  geom_point(data = map_data, aes(x = lon, y = lat, size = total_deaths, color = disease),
+             alpha = 0.7) +
+  scale_size_continuous(name = "Total Deaths") +
+  labs(title = "Total Deaths by City and Disease",
+       x = "Longitude", y = "Latitude", color = "Disease") +
+  theme_minimal()
+
+```
+
+```{r Plotting}
+
+# Load required libraries
+install.packages("ggrepel")
+library(ggplot2)
+library(maps)
+library(viridis)  # For color scales
+library(ggrepel)  # For better label placement
+# Load required libraries
+library(ggplot2)
+library(maps)
+library(readr)
+library(ggrepel)
+
+# Read the data
+data <- read_csv("coordinated_cities.csv")
+
+# Load US state map data
+us_map <- map_data("state")
+
+# Plot the map
+ggplot() +
+  # Draw the US map
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group),
+               fill = "gray90", color = "white") +
+  # Plot disease bubbles
+  geom_point(data = data, aes(x = Longitude, y = Latitude, 
+                              size = `Death Count`, color = `Top Disease`),
+             alpha = 0.7) +
+  # Add labels with disease name and count
+  geom_text_repel(data = data, 
+                  aes(x = Longitude, y = Latitude, 
+                      label = paste0(`Top Disease`, "\n", `Death Count`)),
+                  size = 3.5, box.padding = 0.3, segment.color = "grey40") +
+  # Scale size of bubbles
+  scale_size_continuous(range = c(4, 20), name = "Death Count") +
+  # Improve plot aesthetics
+  labs(title = "Top Disease by City in the US",
+       x = "Longitude", y = "Latitude", color = "Disease") +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+
+```
+
+```{r Plotting}
+
+# Load required libraries
+library(ggplot2)
+library(maps)
+library(readr)
+library(ggrepel)
+
+# Read the data
+data <- read_csv("coordinated_cities.csv")
+
+# Load US state map data
+us_map <- map_data("state")
+
+# Plot the map
+ggplot() +
+  # Draw the US map
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group),
+               fill = "gray90", color = "white") +
+  # Plot disease bubbles (color = disease, size = count)
+  geom_point(data = data, aes(x = Longitude, y = Latitude, 
+                              size = `Death Count`, color = `Top Disease`),
+             alpha = 0.8) +
+  # Add city names near the bubbles
+  geom_text_repel(data = data, 
+                  aes(x = Longitude, y = Latitude, label = City),
+                  size = 3.8, box.padding = 0.3, segment.color = "grey40") +
+  # Scale bubble sizes
+  scale_size_continuous(range = c(4, 20), name = "Death Count") +
+  # Aesthetics
+  labs(title = "Top Diseases by US City (Bubble Size = Death Count)",
+       x = "Longitude", y = "Latitude", color = "Top Disease") +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+```
+
+```{r Plotting}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(maps)
+
+# Read the CSV file
+state_data <- read_csv("state_death_totals.csv")  # Replace with your actual file path
+
+# Prepare map data
+us_states <- map_data("state")
+
+# Convert state names to lowercase for joining
+state_data <- state_data %>%
+  mutate(state_name = tolower(state_name))
+
+# Join map and death data
+map_df <- left_join(us_states, state_data, by = c("region" = "state_name"))
+
+# Calculate centroids for each state
+state_centroids <- map_df %>%
+  group_by(region) %>%
+  summarise(
+    lon = mean(range(long)),
+    lat = mean(range(lat)),
+    state_abbr = first(state_abbr),
+    .groups = "drop"
+  )
+
+# Plot the choropleth with state abbreviations
+ggplot(map_df, aes(long, lat, group = group, fill = total_deaths)) +
+  geom_polygon(color = "white") +
+  coord_fixed(1.3) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total Deaths") +
+  geom_text(data = state_centroids,
+            aes(x = lon, y = lat, label = state_abbr),
+            inherit.aes = FALSE,
+            color = "black", size = 3.5, fontface = "bold") +
+  labs(
+    title = "US State-wise Total Deaths",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
+
+
+
+```
+
+```{r Plotting}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(maps)
+library(ggrepel)  # For smarter label placement
+
+# Read the CSV file
+state_data <- read_csv("state_death_totals.csv")  # Replace with your actual file path
+
+# Prepare map data
+us_states <- map_data("state")
+
+# Convert state names to lowercase for joining
+state_data <- state_data %>%
+  mutate(state_name = tolower(state_name))
+
+# Join map and death data
+map_df <- left_join(us_states, state_data, by = c("region" = "state_name"))
+
+# Calculate centroids for each state (improved method)
+state_centroids <- map_df %>%
+  group_by(region) %>%
+  summarise(
+    lon = mean(long, na.rm = TRUE),
+    lat = mean(lat, na.rm = TRUE),
+    state_abbr = first(state_abbr),
+    .groups = "drop"
+  )
+
+# Plot the choropleth with optimized labels
+ggplot(map_df, aes(long, lat, group = group, fill = total_deaths)) +
+  geom_polygon(color = "white", linewidth = 0.2) +  # Thinner borders
+  coord_fixed(1.3) +
+  scale_fill_gradient(
+    low = "lightblue", 
+    high = "darkblue", 
+    name = "Total Deaths",
+    labels = scales::comma  # Format numbers with commas
+  ) +
+  
+  # Option 1: Using ggrepel for automatic collision avoidance
+  geom_text_repel(
+    data = state_centroids,
+    aes(x = lon, y = lat, label = state_abbr),
+    inherit.aes = FALSE,
+    color = "black",
+    size = 2.5,              # Smaller text size
+    fontface = "bold",
+    box.padding = 0.15,       # Reduce padding around labels
+    min.segment.length = 0,   # Always draw segments
+    segment.size = 0.2,       # Thinner connecting lines
+    segment.color = "gray50", # Subtle connecting line color
+    max.overlaps = Inf        # Allow infinite overlaps resolution
+  ) +
+  
+  # Alternative Option 2: Manual adjustments (if ggrepel isn't available)
+  # geom_text(
+  #   data = state_centroids,
+  #   aes(x = lon, y = lat, label = state_abbr),
+  #   inherit.aes = FALSE,
+  #   color = "black",
+  #   size = 2.5,
+  #   fontface = "bold",
+  #   nudge_y = case_when(
+  #     state_abbr %in% c("CT", "RI", "MA", "NH", "VT", "NJ", "DE", "MD") ~ 0.5,
+  #     state_abbr == "MI" ~ -0.7,
+  #     TRUE ~ 0
+  #   )
+  # ) +
+  
+  labs(
+    title = "US State-wise Total Deaths",
+    x = "Longitude",
+    y = "Latitude",
+    caption = "State abbreviations positioned at geographic centroids"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank()
+  )
+```
+
+```{r Plotting}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(maps)
+
+# Read the CSV file
+state_data <- read_csv("state_death_totals.csv")  # Use your actual file path
+
+# Prepare state map data
+us_states <- map_data("state")
+
+# Convert state names to lowercase to match map_data
+state_data <- state_data %>%
+  mutate(state_name = tolower(state_name))
+
+# Join death data with map data
+map_df <- left_join(us_states, state_data, by = c("region" = "state_name"))
+
+# Plot choropleth map
+ggplot(map_df, aes(long, lat, group = group, fill = total_deaths)) +
+  geom_polygon(color = "white") +
+  coord_fixed(1.3) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Total Deaths") +
+  labs(
+    title = "US State-wise Total Deaths",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
+```
+
+---
+title: "Disease Deaths Comparison"
+output: html_document
+---
+
+## Analysis of Disease Deaths
+
+This report compares total deaths across different diseases, marking them as communicable (C) or non-communicable (NC) using a bar chart.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+
+# Print current working directory for debugging
+cat("Current working directory:", getwd(), "\n")
+```
+
+### Load and Visualize Data
+
+We load the data from the CSV file and create a bar chart to compare deaths by disease.
+
+```{r data_plot, echo=TRUE}
+# Attempt to read the CSV file with error handling
+tryCatch({
+  data <- read.csv("diseases_with_c_nc.csv")
+  
+  # Create a bar chart
+  ggplot(data, aes(x = reorder(Disease, -Total_Deaths), y = Total_Deaths, fill = Communicable)) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = Total_Deaths), vjust = -0.5, size = 3) +  # Add death count labels on top
+    labs(title = "Comparison of Total Deaths by Disease",
+         x = "Disease", y = "Total Deaths",
+         fill = "Communicable (C/NC)") +
+    scale_fill_manual(values = c("C" = "skyblue", "NC" = "salmon")) +  # Color by communicability
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+}, error = function(e) {
+  cat("Error: Could not read the file 'disease_deaths.csv'. Please ensure the file exists in the working directory (", getwd(), ") or provide the correct file path.\n")
+  stop(e)
+})
+```
+
+### Observations
+
+-   Most diseases in the dataset are communicable (C), with Tuberculosis leading in total deaths.
+-   Pellagra is the only non-communicable (NC) disease, with significantly fewer deaths compared to others.
+
+---
+title: "Disease Deaths Comparison"
+output: html_document
+date: "2025-05-08"
+---
+
+## Analysis of Disease Deaths
+
+This report compares total deaths across different diseases, marking them as communicable (C) or non-communicable (NC) using a bar chart.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+
+# Print current working directory for debugging
+cat("Current working directory:", getwd(), "\n")
+```
+
+### Load and Visualize Data
+
+We load the data from the CSV file and create a bar chart to compare deaths by disease.
+
+```{r data_plot, echo=TRUE}
+# Attempt to read the CSV file with error handling
+tryCatch({
+  data <- read.csv("diseases_with_c_nc.csv")
+  
+  # Create a bar chart
+  ggplot(data, aes(x = reorder(Disease, -Total_Deaths), y = Total_Deaths, fill = Communicable)) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = paste0(round(Total_Deaths / 1000000, 2), "M")), 
+              vjust = -0.5, size = 3) +  # Shorten labels to millions (e.g., 610350 -> 0.61M)
+    labs(title = "Comparison of Total Deaths by Disease",
+         x = "Disease", y = "Total Deaths",
+         fill = "Communicable (C/NC)") +
+    scale_fill_manual(values = c("C" = "skyblue", "NC" = "salmon")) +  # Color by communicability
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+}, error = function(e) {
+  cat("Error: Could not read the file 'disease_deaths.csv'. Please ensure the file exists in the working directory (", getwd(), ") or provide the correct file path.\n")
+  stop(e)
+})
+```
+
+### Observations
+
+-   Most diseases in the dataset are communicable (C), with Tuberculosis leading in total deaths.
+-   Pellagra is the only non-communicable (NC) disease, with significantly fewer deaths compared to others.
+
+---
+title: "Disease Deaths Comparison"
+output: html_document
+date: "2025-05-08"
+---
+
+## Analysis of Disease Deaths
+
+This report compares total deaths across different diseases, marking them as communicable (C) or non-communicable (NC) using a bar chart.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+
+# Print current working directory for debugging
+cat("Current working directory:", getwd(), "\n")
+```
+
+### Load and Visualize Data
+
+We load the data from the CSV file and create a bar chart to compare deaths by disease.
+
+```{r data_plot, echo=TRUE}
+# Attempt to read the CSV file with error handling
+tryCatch({
+  data <- read.csv("disease_deaths.csv")
+  
+  # Create a bar chart
+  ggplot(data, aes(x = reorder(Disease, -Total_Deaths), y = Total_Deaths / 1000000, fill = Communicable)) +
+    geom_bar(stat = "identity") +
+    labs(title = "Comparison of Total Deaths by Disease",
+         x = "Disease", y = "Total Deaths (in Millions)",
+         fill = "Communicable (C/NC)") +
+    scale_y_continuous(breaks = seq(0, max(data$Total_Deaths / 1000000), by = 0.1)) +  # Clear breaks in millions
+    scale_fill_manual(values = c("C" = "skyblue", "NC" = "salmon")) +  # Color by communicability
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+}, error = function(e) {
+  cat("Error: Could not read the file 'disease_deaths.csv'. Please ensure the file exists in the working directory (", getwd(), ") or provide the correct file path.\n")
+  stop(e)
+})
+```
+
+### Observations
+
+-   Most diseases in the dataset are communicable (C), with Tuberculosis leading in total deaths.
+-   Pellagra is the only non-communicable (NC) disease, with significantly fewer deaths compared to others.
+
+
+
+
+```{r data_plot, echo=TRUE}
+
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+
+# Read data from CSV
+data <- read.csv("top_5_diseases.csv")
+
+# Convert 'number' to millions for better readability on the plot
+data <- data %>% mutate(number_in_millions = number / 1000000)
+
+# Create a lollipop chart
+ggplot(data, aes(x = reorder(disease, number), y = number_in_millions)) +
+  geom_segment(aes(x = reorder(disease, number), xend = reorder(disease, number), 
+                   y = 0, yend = number_in_millions), 
+               color = "grey50", linewidth = 1.5) +  # Lines (sticks) of the lollipop
+  geom_point(size = 6, aes(color = disease)) +  # Points (lollipops) with vivid colors
+  scale_color_manual(values = c("Measles" = "#FF6F61", 
+                                "Tuberculosis" = "#6B5B95", 
+                                "Scarlet Fever" = "#88B04B", 
+                                "Pneumonia" = "#F7CAC9", 
+                                "Diphtheria" = "#92A8D1")) +  # Vivid color palette
+  coord_flip() +  # Flip coordinates for better readability of disease names
+  labs(title = "Comparative Analysis of Top 5 Disease Deaths",
+       x = "Disease",
+       y = "Total Deaths (in Millions)",
+       caption = "Data represents total deaths across all cities.") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none",  # Remove legend since colors are for aesthetics
+        plot.title = element_text(hjust = 0.5, face = "bold", color = "#333333"),
+        axis.text = element_text(color = "#333333"),
+        panel.grid.major.y = element_line(color = "grey80", linetype = "dashed"),
+        panel.grid.minor = element_blank())  # Clean, lucid theme
+
+# Save the plot (optional)
+ggsave("disease_comparison_lollipop.png", width = 8, height = 6)
+```
